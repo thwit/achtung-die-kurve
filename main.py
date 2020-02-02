@@ -1,8 +1,7 @@
 import pygame
 import pygame.gfxdraw
 import sys
-import random
-import math
+from model.models import Snake
 
 WINHEIGHT = 500
 WINWIDTH = 800
@@ -10,104 +9,90 @@ PADDING = 50
 FPS = 100
 BACKGROUND_COLOR = (95,95,95)
 BACKGROUND_COLOR_TRANSPARENT = (95, 95, 95, 0)
-PLAYER_COLOR = (0,0,0)
+TEXT_COLOR = (230,230,230)
+
+COLOR1 = (130,130,130)
+COLOR2 = (170,170,170)
+COLOR3 = (35,35,35)
 
 LEFT = 0
 RIGHT = 1
-HITBOX_PADDING = 5.5
 
-
-class Snake:
-	def __init__(self):
-		self.ix = random.randrange(PADDING,WINWIDTH-PADDING)
-		self.iy = random.randrange(PADDING,WINHEIGHT-PADDING)
-		self.fx = float(self.ix)
-		self.fy = float(self.iy)
-		
-		self.angle = random.randrange(0,360)
-		self.speed = 0.75
-		self.radius = 3
-		
-		self.gap_counter = 0
-		self.gap_timer = 0
-	
-		self.x = int(self.fx + self.speed * HITBOX_PADDING * math.cos(math.radians(self.angle)))
-		self.y = int(self.fy + self.speed * HITBOX_PADDING * math.sin(math.radians(self.angle)))
-		
-		self.px = self.ix
-		self.py = self.iy
-		
-	def move(self):
-		self.px = self.ix
-		self.py = self.iy
-		self.fx += self.speed * math.cos(math.radians(self.angle))
-		self.fy += self.speed * math.sin(math.radians(self.angle))
-		self.ix = int(self.fx)
-		self.iy = int(self.fy)
-		
-		self.x = int(self.fx + self.speed * HITBOX_PADDING * math.cos(math.radians(self.angle)))
-		self.y = int(self.fy + self.speed * HITBOX_PADDING * math.sin(math.radians(self.angle)))
-	
-	def draw(self):
-		
-		HEAD_SURFACE.fill(BACKGROUND_COLOR_TRANSPARENT)
-		if self.gap_counter >= 350 and self.gap_timer <= 35:
-			pygame.gfxdraw.aacircle(HEAD_SURFACE, self.ix, self.iy, self.radius, PLAYER_COLOR)
-			pygame.gfxdraw.filled_circle(HEAD_SURFACE, self.ix, self.iy, self.radius, PLAYER_COLOR)
-			
-			#pygame.gfxdraw.aacircle(SURFACE, self.px, self.py, self.radius, BACKGROUND_COLOR)
-			#pygame.gfxdraw.filled_circle(SURFACE, self.px, self.py, self.radius+1, BACKGROUND_COLOR)
-			self.gap_timer += 1
-		elif self.gap_counter >= 350:
-			self.gap_counter = 0
-			self.gap_timer = 0
-		else:
-			self.gap_counter += 1
-			pygame.gfxdraw.aacircle(SURFACE, self.ix, self.iy, self.radius, PLAYER_COLOR)
-			pygame.gfxdraw.filled_circle(SURFACE, self.ix, self.iy, self.radius, PLAYER_COLOR)
-
-	def change_angle(self, dir):
-		if dir == LEFT:
-			self.angle -= 2
-		if dir == RIGHT:
-			self.angle += 2
-			
 def main():
-	global CLOCK, SCREEN, SURFACE, HEAD_SURFACE
+	global CLOCK, SCREEN, SURFACE, HEAD_SURFACE, FONT
 	pygame.init()
+	FONT = pygame.font.SysFont("couriernew", 30)
 	CLOCK = pygame.time.Clock()
 	SCREEN = pygame.display.set_mode((WINWIDTH, WINHEIGHT))
 	SURFACE = pygame.Surface(SCREEN.get_size())
 	HEAD_SURFACE = pygame.Surface(SCREEN.get_size(),pygame.SRCALPHA)
+	TEXT_SURFACE = pygame.Surface(SCREEN.get_size(),pygame.SRCALPHA)
 	run_game()
 
 def run_game():
-	player = reset()
+	players = reset()
 	gameover = False
+	players_alive = 3
 	while True:
-		
+		HEAD_SURFACE.fill(BACKGROUND_COLOR_TRANSPARENT)
 		for event in pygame.event.get():
 			if event.type == pygame.QUIT:
 				sys.exit()
 			if event.type == pygame.KEYDOWN:
 				if event.key == pygame.K_RETURN:
 					gameover = False
-					player = reset()
+					players_alive = 3
+					players = reset()		
+			
+		for player in players:
+			if not player.alive:
+				continue
+			if player.x < 0 or player.x >= WINWIDTH or player.y < 0 or player.y >= WINHEIGHT:
+				player.alive = False
+				players_alive -= 1
+			elif SURFACE.get_at((player.x,player.y)) != BACKGROUND_COLOR:
+				player.alive = False
+				players_alive -= 1
+				continue
+			
+			player.draw(SURFACE,HEAD_SURFACE)
+			
+		gameover = players_alive <= 1
 		
-
-		if gameover or SURFACE.get_at((player.x,player.y)) != BACKGROUND_COLOR:
-			gameover = True
-			continue		
-					
-		player.draw()
+		if gameover:
+			
+			text = "GAME OVER"
+		
+			for i in range(3):
+				if players[i].alive:
+					text = "PLAYER " + str(i+1) + " WON" 
+			
+			TEXT_SURFACE = FONT.render(text, False, TEXT_COLOR)
+			
+			text_rect = TEXT_SURFACE.get_rect(center=(WINWIDTH / 2, WINHEIGHT / 2))
+			
+			SCREEN.blit(TEXT_SURFACE, text_rect)
+			pygame.display.update()
+			continue
+			
 		keys = pygame.key.get_pressed()
 		
-		if keys[pygame.K_LEFT]:
-			player.change_angle(LEFT)
-		if keys[pygame.K_RIGHT]:
-			player.change_angle(RIGHT)
 		
-		player.move()
+		if keys[pygame.K_LEFT] and players[0].alive:
+			players[0].change_angle(LEFT)
+		if keys[pygame.K_RIGHT] and players[0].alive:
+			players[0].change_angle(RIGHT)
+		if keys[pygame.K_a] and players[1].alive:
+			players[1].change_angle(LEFT)
+		if keys[pygame.K_d] and players[1].alive:
+			players[1].change_angle(RIGHT)
+		if keys[pygame.K_h] and players[2].alive:
+			players[2].change_angle(LEFT)
+		if keys[pygame.K_k] and players[2].alive:
+			players[2].change_angle(RIGHT)
+		
+		for player in players:
+			player.move()
 		
 		SCREEN.blit(SURFACE, (0, 0))
 		
@@ -118,7 +103,7 @@ def run_game():
 		
 def reset():
 	SURFACE.fill(BACKGROUND_COLOR)
-	return Snake()
+	return [Snake(COLOR1,WINWIDTH,WINHEIGHT), Snake(COLOR2,WINWIDTH,WINHEIGHT), Snake(COLOR3,WINWIDTH,WINHEIGHT)]
 		
 if __name__ == "__main__":
     main()
